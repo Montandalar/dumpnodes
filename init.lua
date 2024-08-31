@@ -16,7 +16,7 @@ local function pairs_s(dict)
 end
 
 minetest.register_chatcommand("dumpnodes", {
-	description = "Dump node and texture list for use with minetestmapper",
+	description = "Dump node and texture list for use with litematica",
 	func = function()
 		local ntbl = {}
 		for _, nn in pairs_s(minetest.registered_nodes) do
@@ -30,13 +30,18 @@ minetest.register_chatcommand("dumpnodes", {
 				ntbl[prefix][name] = true
 			end
 		end
-		local out, err = io.open(minetest.get_worldpath() .. "/nodes.txt", 'wb')
-		if not out then
+		local nodef, err = io.open(minetest.get_worldpath() .. "/nodes.lua", 'wb')
+		if not nodef then
 			return true, err
 		end
+		local texf, err = io.open(minetest.get_worldpath() .. "/textures.lua", 'wb')
+		if not texf then
+			return true, err
+		end
+        nodef:write("return {")
+        texf:write("return {")
 		local n = 0
 		for _, prefix in pairs_s(ntbl) do
-			out:write('# ' .. prefix .. '\n')
 			for _, name in pairs_s(ntbl[prefix]) do
 				local nn = prefix .. ":" .. name
 				local nd = minetest.registered_nodes[nn]
@@ -45,17 +50,23 @@ minetest.register_chatcommand("dumpnodes", {
 					print("ignored(2): " .. nn)
 				else
 					local tex = get_tile(tiles, 1)
+                    if tex == nil then
+						minetest.log("error", dump(nd))
+					end
 					tex = (tex .. '^'):match('%(*(.-)%)*^') -- strip modifiers
 					if tex:find("[combine", 1, true) then
 						tex = tex:match('.-=([^:]-)') -- extract first texture
 					end
-					out:write(nn .. ' ' .. tex .. '\n')
+					nodef:write('"' .. nn .. '",')
+                    texf:write('"' .. tex .. '",')
 					n = n + 1
 				end
 			end
-			out:write('\n')
 		end
-		out:close()
+        texf:write("}\n")
+        nodef:write("}\n")
+		nodef:close()
+        texf:close()
 		return true, n .. " nodes dumped."
 	end,
 })
